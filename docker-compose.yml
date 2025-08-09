@@ -13,10 +13,13 @@ services:
     ports:
       - "8088:80"
     environment:
-      - OTEL_EXPORTER_OTLP_ENDPOINT
-      - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      # - OTEL_RESOURCE_ATTRIBUTES
       - OTEL_SERVICE_NAME=product
       - ASPNETCORE_URLS=http://*:80
+    depends_on:
+      otel-collector:
+        condition: service_started
   otel-collector:
     image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.129.1
     container_name: otel-collector
@@ -31,6 +34,7 @@ services:
       - ./src/otel-collector/otelcol-config.yml:/etc/otelcol-config.yml
     ports:
       - "4318"
+      - "4317"
     depends_on:
       jaeger:
         condition: service_started
