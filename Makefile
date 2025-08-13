@@ -1,6 +1,9 @@
 .PHONY: product
 product:
 	docker-compose build product
+.PHONY: order
+order:
+	docker-compose build order
 
 .PHONY: start
 start:

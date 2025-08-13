@@ -3,28 +3,23 @@
     <PropertyGroup>
         <TargetFramework>net8.0</TargetFramework>
         <Nullable>enable</Nullable>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <!-- <SelfContained>true</SelfContained>
-        <PublishSingleFile>true</PublishSingleFile> -->
         <ProtosDir>$(ProjectDir)..\protobuf</ProtosDir>
     </PropertyGroup>
 
     <PropertyGroup Condition="!Exists('$(ProtosDir)')">
         <ProtosDir>..\..\protobuf</ProtosDir>
     </PropertyGroup>
-
+    
     <ItemGroup>
-        <PackageReference Include="Confluent.Kafka.Extensions.Diagnostics" Version="0.5.0" />
         <PackageReference Include="Confluent.Kafka.Extensions.OpenTelemetry" Version="0.4.0" />
         <PackageReference Include="Grpc.AspNetCore" Version="2.67.0" />
-        <PackageReference Include="Confluent.Kafka" Version="2.11.0" />
-        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="8.0.8"/>
+        <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0"/>
         <PackageReference Include="OpenTelemetry.Exporter.Console" Version="1.12.0" />
         <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.12.0" />
         <PackageReference Include="OpenTelemetry.Extensions.Hosting" Version="1.12.0" />
         <PackageReference Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.12.0" />
         <PackageReference Include="OpenTelemetry.Instrumentation.Http" Version="1.12.0" />
-        <PackageReference Include="Swashbuckle.AspNetCore" Version="6.4.0"/>
+        <PackageReference Include="Confluent.Kafka" Version="2.11.0" />
     </ItemGroup>
 
     <ItemGroup>

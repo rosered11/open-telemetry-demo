@@ -1,5 +1,6 @@
 using OpenTelemetry.Trace;
 using System.Diagnostics;
+using Confluent.Kafka.Extensions.OpenTelemetry;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Resources;
 
@@ -26,66 +27,45 @@ builder.Logging
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-Action<ResourceBuilder> appResourceBuilder =
-    resource => resource
-        .AddService(builder.Environment.ApplicationName);
-        // .AddContainerDetector()
-        // .AddHostDetector();
-// builder.Services.AddOpenTelemetry()
-//     .ConfigureResource(appResourceBuilder)
-//   .WithTracing(b =>
-//   {
-//       b
-//       .AddHttpClientInstrumentation()
-//       .AddAspNetCoreInstrumentation()
-//       .AddOtlpExporter();
-//   });
-        builder.Services.AddOpenTelemetry()
-            .ConfigureResource(rb => rb.AddService(builder.Environment.ApplicationName))
-            .WithTracing(tracerProvider =>
-            {
-                tracerProvider
-                    .AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation()
-                    .AddOtlpExporter(o =>
-                    {
-                        o.Endpoint = new Uri("http://otel-collector:4317"); // match your config
-                    });
-            });
+builder.Services.AddSingleton<Consumer>();
 
+void AppResourceBuilder(ResourceBuilder resource) => resource.AddService(builder.Environment.ApplicationName);
+// .AddContainerDetector()
+        // .AddHostDetector();
+builder.Services.AddOpenTelemetry()
+    .ConfigureResource(AppResourceBuilder)
+    .WithTracing(b =>
+    {
+      b.AddSource(ServiceName.Products)
+      .AddHttpClientInstrumentation()
+      .AddAspNetCoreInstrumentation()
+      .AddConfluentKafkaInstrumentation()
+      .AddOtlpExporter();
+    });
+        
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
 app.UseSwagger();
 app.UseSwaggerUI();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+var consumer = app.Services.GetRequiredService<Consumer>();
+_ = Task.Run(() => consumer.StartListening());
 
-app.MapGet("/weatherforecast", () =>
+app.MapGet("/api/products", () =>
     {
+        
         var activity = Activity.Current;
         activity?.SetTag("app.user.id", "test");
+        activity?.AddEvent(new("Fetch products"));
         // activity?.SetTag("app.product.id", request.Item.ProductId);
         // activity?.SetTag("app.product.quantity", request.Item.Quantity);v
-        var forecast = Enumerable.Range(1, 5).Select(index =>
-                new WeatherForecast
-                (
-                    DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-                    Random.Shared.Next(-20, 55),
-                    summaries[Random.Shared.Next(summaries.Length)]
-                ))
-            .ToArray();
-        return forecast;
+        Product[] products = [new(1, "p1"), new Product(2, "p2")];
+        return products;
     })
-    .WithName("GetWeatherForecast")
+    .WithName("GetProducts")
     .WithOpenApi();
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
+public record Product(long Id, string Name);

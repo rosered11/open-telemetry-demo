@@ -1,15 +1,13 @@
-# Stage 1: Build
 FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:8.0 AS builder
 ARG TARGETARCH
 
 WORKDIR /app/
-COPY ./src/product/ ./
+COPY ./src/order/ ./
 COPY ./src/protobuf/ ../protobuf/
 
-RUN dotnet restore ./Product.Api/Product.Api.csproj
-RUN dotnet publish ./Product.Api/Product.Api.csproj --no-restore -c Release -o /out
+RUN dotnet restore ./Order.Api/Order.Api.csproj
+RUN dotnet publish ./Order.Api/Order.Api.csproj --no-restore -c Release -o /out
 
-# Stage 2: Runtime (Alpine)
 FROM --platform=linux/${TARGETARCH} mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 
 RUN apt-get update && apt-get install -y librdkafka1
@@ -20,6 +18,5 @@ COPY --from=builder /out ./
 ENV DOTNET_HOSTBUILDER__RELOADCONFIGONCHANGE=false
 
 EXPOSE 80
-RUN ls -l
 
-ENTRYPOINT ["dotnet", "./Product.Api.dll"]
+ENTRYPOINT ["dotnet", "./Order.Api.dll"]

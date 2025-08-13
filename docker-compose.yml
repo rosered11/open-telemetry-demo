@@ -20,6 +20,31 @@ services:
     depends_on:
       otel-collector:
         condition: service_started
+      kafka-init-topics:
+        condition: service_completed_successfully
+  order:
+    image: rosered11-otel:order
+    container_name: order
+    build:
+      context: ./
+      dockerfile: ./src/order/Order.Api/Dockerfile
+    deploy:
+      resources:
+        limits:
+          memory: 160M
+    restart: unless-stopped
+    ports:
+      - "8089:80"
+    environment:
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
+      # - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=order
+      - ASPNETCORE_URLS=http://*:80
+    depends_on:
+      otel-collector:
+        condition: service_started
+      kafka-init-topics:
+        condition: service_completed_successfully
   otel-collector:
     image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.129.1
     container_name: otel-collector
@@ -134,3 +159,55 @@ services:
       - ./src/grafana/provisioning/:/etc/grafana/provisioning/
     ports:
       - "9030:3000"
+  kafka:
+    image: rosered11-otel:kafka
+    container_name: kafka
+    build:
+      context: ./
+      dockerfile: ./src/kafka/Dockerfile
+      args:
+        OTEL_JAVA_AGENT_VERSION: 2.18.1
+    # command:
+    #   - sh
+    #   - -c
+    #   - |
+    #     /opt/kafka/bin/kafka-topics.sh --create \
+    #       --topic orders \
+    #       --bootstrap-server kafka:9092
+    #     wait
+    deploy:
+      resources:
+        limits:
+          memory: 620M
+    restart: unless-stopped
+    environment:
+      - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
+      - KAFKA_LISTENERS=PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093
+      - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      # - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
+      # - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_SERVICE_NAME=kafka
+      - KAFKA_HEAP_OPTS=-Xmx400m -Xms400m
+      # Workaround on OSX for https://bugs.openjdk.org/browse/JDK-8345296
+      - _JAVA_OPTIONS
+    healthcheck:
+      test: nc -z kafka 9092
+      start_period: 10s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+  kafka-init-topics:
+    image: apache/kafka:3.9.1
+    depends_on:
+      - kafka
+    entrypoint:
+      - sh
+      - -c
+      - |
+        echo "Waiting for Kafka to be ready..." && \
+        sleep 5 && \
+        /opt/kafka/bin/kafka-topics.sh --create \
+          --topic orders \
+          --bootstrap-server kafka:9092 && \
+        echo "Topics created!"
