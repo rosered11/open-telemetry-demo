@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using System.Text;
 using Confluent.Kafka;
-using Confluent.Kafka.Extensions.Diagnostics;
+using OpenTelemetry;
 using OpenTelemetry.Context.Propagation;
 using RoseredOtel;
 
@@ -48,12 +48,8 @@ public sealed class Consumer : IDisposable
             {
                 try
                 {
-                    // _consumer.ConsumeWithInstrumentation(record =>
-                    // {
-                    //     ProcessMessage(record.Message);
-                    // }, 1000);
                     var consumeResult = _consumer.Consume();
-                    ProcessMessage(consumeResult.Message);
+                    ProcessMessage(consumeResult);
                 }
                 catch (ConsumeException e)
                 {
@@ -68,29 +64,28 @@ public sealed class Consumer : IDisposable
             _consumer.Close();
         }
     }
-
-    private void ProcessMessage(Message<string, byte[]> message)
+    public void ProcessMessage(ConsumeResult<string, byte[]> consume)
     {
-        try
+        var message = consume.Message;
+        // Extract trace context from headers
+        var parentContext = Propagators.DefaultTextMapPropagator.Extract(default, message.Headers, (headers, key) =>
         {
-            var parentContext = Propagators.DefaultTextMapPropagator.Extract(
-                default,
-                message.Headers,
-                (headers, key) =>
-                {
-                    var header = headers.FirstOrDefault(h => h.Key == key);
-                    return header == null ? Enumerable.Empty<string>() : new[] { Encoding.UTF8.GetString(header.GetValueBytes()) };
-                }
-            );
-            var activity = MyActivitySource.StartActivity("process order", ActivityKind.Consumer, parentContext.ActivityContext);
-            var order = OrderResult.Parser.ParseFrom(message.Value);
-            Log.OrderReceivedMessage(_logger, order);
-            activity.AddEvent(new("Received message"));
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Order parsing failed:");
-        }
+            var header = headers.FirstOrDefault(h => h.Key == key);
+            return header == null
+                ? Enumerable.Empty<string>()
+                : new[] { Encoding.UTF8.GetString(header.GetValueBytes()) };
+        });
+
+        Baggage.Current = parentContext.Baggage;
+
+        using var activity = MyActivitySource.StartActivity("process order", ActivityKind.Consumer, parentContext.ActivityContext);
+        activity?.SetTag("messaging.kafka.topic", consume.Topic);
+        activity?.SetTag("messaging.kafka.partition", consume.Partition.Value);
+        activity?.SetTag("messaging.kafka.offset", consume.Offset.Value);
+        // Example processing
+        var order = OrderResult.Parser.ParseFrom(message.Value);
+        activity?.AddEvent(new ActivityEvent("Received message"));
+        _logger.LogInformation("Processing message completed");
     }
     public void Dispose()
     {

@@ -167,14 +167,6 @@ services:
       dockerfile: ./src/kafka/Dockerfile
       args:
         OTEL_JAVA_AGENT_VERSION: 2.18.1
-    # command:
-    #   - sh
-    #   - -c
-    #   - |
-    #     /opt/kafka/bin/kafka-topics.sh --create \
-    #       --topic orders \
-    #       --bootstrap-server kafka:9092
-    #     wait
     deploy:
       resources:
         limits:

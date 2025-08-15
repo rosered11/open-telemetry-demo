@@ -1,9 +1,12 @@
 using System;
 using Confluent.Kafka.Extensions.OpenTelemetry;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Order.Api;
@@ -13,10 +16,6 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Logging
     .AddOpenTelemetry(options => options.AddOtlpExporter())
     .AddConsole();
-// var tracerProvider = Sdk.CreateTracerProviderBuilder()
-//     .AddSource("Order.Producer") // match your ActivitySource name
-//     .AddConsoleExporter() // or OTLP exporter to collector
-//     .Build();
 
 // Add services to the container.
 builder.Services.AddOpenTelemetry()
@@ -28,17 +27,16 @@ builder.Services.AddOpenTelemetry()
       .AddHttpClientInstrumentation()
       .AddAspNetCoreInstrumentation()
       .AddConfluentKafkaInstrumentation()
+      .SetSampler(new ParentBasedSampler(new AlwaysOnSampler()))
       .AddOtlpExporter();
-  })
-    // .WithMetrics(meterBuilder => meterBuilder
-    //     .AddMeter("OpenTelemetry.Demo.Cart")
-    //     .AddMeter("OpenFeature")
-    //     .AddProcessInstrumentation()
-    //     .AddRuntimeInstrumentation()
-    //     .AddAspNetCoreInstrumentation()
-    //     .SetExemplarFilter(ExemplarFilterType.TraceBased)
-    //     .AddOtlpExporter())
-    ;
+  }).WithMetrics(meterBuilder => meterBuilder
+      .AddMeter("OpenTelemetry.Demo.Cart")
+      .AddMeter("OpenFeature")
+      .AddProcessInstrumentation()
+      .AddRuntimeInstrumentation()
+      .AddAspNetCoreInstrumentation()
+      .SetExemplarFilter(ExemplarFilterType.TraceBased)
+      .AddOtlpExporter());
 
     
 
