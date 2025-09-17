@@ -22,13 +22,24 @@ exporters:
     endpoint: "http://prometheus:9090/api/v1/otlp"
     tls:
       insecure: true
-  opensearch:
-    logs_index: otel-logs
-    logs_index_time_format: "yyyy-MM-dd"
-    http:
-      endpoint: "http://opensearch:9200"
-      tls:
-        insecure: true
+  elasticsearch:
+    endpoint: http://elasticsearch:9200
+    # tls:
+    #   insecure: true
+    # logs_index: otel-logs
+    
+    # index_date_layout: "2006-01-02"
+    # logs_index_time_format: "yyyy-MM-dd"
+    # index: otel_logs_index
+  # elasticsearch/logs:
+  #   endpoints: ["http://elasticsearch:9200"]
+  #   logs_index: otel-logs-write
+  #   mapping:
+  #     mode: otel
+  #   sending_queue:
+  #     enabled: true
+  #     num_consumers: 5
+  #     queue_size: 1000
 processors:
   batch:
   transform:
@@ -55,8 +66,11 @@ service:
       exporters: [otlphttp/prometheus, debug]
     logs:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [opensearch, debug]
+      exporters: [elasticsearch, debug]
+    # logs:
+    #   receivers: [otlp]
+    #   processors: [batch]
+    #   exporters: [opensearch, debug]
   telemetry:
     metrics:
       level: detailed

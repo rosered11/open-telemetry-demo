@@ -1,0 +1,15 @@
+apiVersion: 1
+
+datasources:
+  - name: Elasticsearch
+    uid: webstore-elastic-logs
+    type: elasticsearch
+    url: http://elasticsearch:9200
+    access: proxy
+    editable: true
+    isDefault: false
+    jsonData:
+      database: jaeger-main-jaeger-span-*
+      timeField: startTimeMillis
+      esVersion: 8.0.0
+      timeInterval: "10s"

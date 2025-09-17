@@ -20,6 +20,8 @@ services:
     depends_on:
       otel-collector:
         condition: service_started
+      jaeger:
+        condition: service_started
       kafka-init-topics:
         condition: service_completed_successfully
   order:
@@ -43,10 +45,12 @@ services:
     depends_on:
       otel-collector:
         condition: service_started
+      jaeger:
+        condition: service_started
       kafka-init-topics:
         condition: service_completed_successfully
   otel-collector:
-    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.129.1
+    image: ghcr.io/open-telemetry/opentelemetry-collector-releases/opentelemetry-collector-contrib:0.135.0
     container_name: otel-collector
     deploy:
       resources:
@@ -63,10 +67,53 @@ services:
     depends_on:
       jaeger:
         condition: service_started
-      opensearch:
+      # opensearch:
+      #   condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     environment:
       - GOMEMLIMIT=160MiB
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: elasticsearch
+    deploy:
+      resources:
+        limits:
+          memory: 1.1G
+    restart: unless-stopped
+    environment:
+      - cluster.name=demo-cluster
+      - node.name=demo-node
+      - bootstrap.memory_lock=true
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms300m -Xmx300m
+      - xpack.security.enabled=false
+      - xpack.security.http.ssl.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    ports:
+      - "9200:9200"
+    # volumes:
+    #   - ./src/elastic/es-init-scripts:/usr/share/elasticsearch/init-scripts:ro
+    healthcheck:
+      test: curl -s http://localhost:9200/_cluster/health | grep -E '"status":"(green|yellow)"'
+      start_period: 10s
+      interval: 5s
+      timeout: 10s
+      retries: 10
+    # command: >
+    #   sh -c "
+    #   /usr/local/bin/docker-entrypoint.sh eswrapper &
+    #   until curl -s http://localhost:9200; do sleep 2; done
+    #   && for f in /usr/share/elasticsearch/init-scripts/*.sh; do sh $f; done
+    #   && wait
+    #   "
   prometheus:
     image: quay.io/prometheus/prometheus:v3.4.2
     container_name: prometheus
@@ -89,61 +136,55 @@ services:
     restart: unless-stopped
     ports:
       - "9090:9090"
-
-  # OpenSearch
-  opensearch:
-    image: opensearchproject/opensearch:3.1.0
-    container_name: opensearch
-    deploy:
-      resources:
-        limits:
-          memory: 1.1G
-    restart: unless-stopped
-    environment:
-      - cluster.name=demo-cluster
-      - node.name=demo-node
-      - bootstrap.memory_lock=true
-      - discovery.type=single-node
-      - OPENSEARCH_JAVA_OPTS=-Xms300m -Xmx300m
-      - DISABLE_INSTALL_DEMO_CONFIG=true
-      - DISABLE_SECURITY_PLUGIN=true
-      # Workaround on OSX for https://bugs.openjdk.org/browse/JDK-8345296
-      - _JAVA_OPTIONS
-    ulimits:
-      memlock:
-        soft: -1
-        hard: -1
-      nofile:
-        soft: 65536
-        hard: 65536
-    ports:
-      - "9200:9200"
-    healthcheck:
-      test: curl -s http://localhost:9200/_cluster/health | grep -E '"status":"(green|yellow)"'
-      start_period: 10s
-      interval: 5s
-      timeout: 10s
-      retries: 10
+  
   jaeger:
-    image: jaegertracing/all-in-one:1.70.0
-    container_name: jaeger
-    command:
-      - "--memory.max-traces=25000"
-      - "--query.base-path=/jaeger/ui"
-      - "--prometheus.server-url=http://prometheus:9090"
-      - "--prometheus.query.normalize-calls=true"
-      - "--prometheus.query.normalize-duration=true"
+    image: jaegertracing/jaeger:2.10.0
     deploy:
       resources:
         limits:
           memory: 1200M
     restart: unless-stopped
+    volumes:
+      - ./src/jaeger/otelcol-config-elastic.yml:/etc/otelcol-config-elastic.yml
+    command: ["--config", "/etc/otelcol-config-elastic.yml"]
     ports:
       - "9091:16686"         # Jaeger UI
-    environment:
-      - METRICS_STORAGE_TYPE=prometheus
+      - "4317:4317"
+      - "4318:4318"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+      prometheus:
+        condition: service_started
+  # jaeger:
+  #   image: jaegertracing/jaeger:2.10.0
+  #   container_name: jaeger
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 1200M
+  #   restart: unless-stopped
+  #   ports:
+  #     - "9091:16686"         # Jaeger UI
+  #   depends_on: 
+  #     - jaeger-core
 
   # Grafana
+  # grafana:
+  #   image: grafana/grafana:12.0.2
+  #   container_name: grafana
+  #   deploy:
+  #     resources:
+  #       limits:
+  #         memory: 120M
+  #   restart: unless-stopped
+  #   environment:
+  #     - "GF_INSTALL_PLUGINS=grafana-opensearch-datasource"
+  #   volumes:
+  #     - ./src/grafana/grafana.ini:/etc/grafana/grafana.ini
+  #     - ./src/grafana/provisioning/:/etc/grafana/provisioning/
+  #   ports:
+  #     - "9030:3000"
   grafana:
     image: grafana/grafana:12.0.2
     container_name: grafana
@@ -152,13 +193,12 @@ services:
         limits:
           memory: 120M
     restart: unless-stopped
-    environment:
-      - "GF_INSTALL_PLUGINS=grafana-opensearch-datasource"
     volumes:
       - ./src/grafana/grafana.ini:/etc/grafana/grafana.ini
       - ./src/grafana/provisioning/:/etc/grafana/provisioning/
     ports:
       - "9030:3000"
+
   kafka:
     image: rosered11-otel:kafka
     container_name: kafka
@@ -176,7 +216,7 @@ services:
       - KAFKA_ADVERTISED_LISTENERS=PLAINTEXT://kafka:9092
       - KAFKA_LISTENERS=PLAINTEXT://kafka:9092,CONTROLLER://kafka:9093
       - KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
-      - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
+      # - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4318
       # - OTEL_EXPORTER_OTLP_METRICS_TEMPORALITY_PREFERENCE
       # - OTEL_RESOURCE_ATTRIBUTES
       - OTEL_SERVICE_NAME=kafka

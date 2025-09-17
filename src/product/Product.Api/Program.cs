@@ -27,8 +27,8 @@ builder.Services.AddOpenTelemetry()
       .SetSampler(new ParentBasedSampler(new AlwaysOnSampler()))
       .AddOtlpExporter();
     }).WithMetrics(meterBuilder => meterBuilder
-        .AddMeter("OpenTelemetry.Demo.Cart")
-        .AddMeter("OpenFeature")
+        // .AddMeter("Demo")
+        // .AddMeter("OpenFeature")
         .AddProcessInstrumentation()
         .AddRuntimeInstrumentation()
         .AddAspNetCoreInstrumentation()
