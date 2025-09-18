@@ -24,22 +24,7 @@ exporters:
       insecure: true
   elasticsearch:
     endpoint: http://elasticsearch:9200
-    # tls:
-    #   insecure: true
-    # logs_index: otel-logs
-    
-    # index_date_layout: "2006-01-02"
-    # logs_index_time_format: "yyyy-MM-dd"
-    # index: otel_logs_index
-  # elasticsearch/logs:
-  #   endpoints: ["http://elasticsearch:9200"]
-  #   logs_index: otel-logs-write
-  #   mapping:
-  #     mode: otel
-  #   sending_queue:
-  #     enabled: true
-  #     num_consumers: 5
-  #     queue_size: 1000
+
 processors:
   batch:
   transform:
@@ -50,7 +35,6 @@ processors:
           # could be removed when https://github.com/vercel/next.js/pull/64852 is fixed upstream
           - replace_pattern(name, "\\?.*", "")
           - replace_match(name, "GET /api/products/*", "GET /api/products/{productId}")
-
 connectors:
   spanmetrics:
 
@@ -71,14 +55,14 @@ service:
     #   receivers: [otlp]
     #   processors: [batch]
     #   exporters: [opensearch, debug]
-  telemetry:
-    metrics:
-      level: detailed
-      readers:
-        - periodic:
-            interval: 10000
-            timeout: 5000
-            exporter:
-              otlp:
-                protocol: http/protobuf
-                endpoint: otel-collector:4318
+  # telemetry:
+  #   metrics:
+  #     level: detailed
+  #     readers:
+  #       - periodic:
+  #           interval: 10000
+  #           timeout: 5000
+  #           exporter:
+  #             otlp:
+  #               protocol: http/protobuf
+  #               endpoint: otel-collector:4318

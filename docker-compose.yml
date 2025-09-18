@@ -15,6 +15,7 @@ services:
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
       # - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_RESOURCE_ATTRIBUTES=data_stream.dataset=otel-logs,data_stream.namespace=demo
       - OTEL_SERVICE_NAME=product
       - ASPNETCORE_URLS=http://*:80
     depends_on:
@@ -39,7 +40,7 @@ services:
       - "8089:80"
     environment:
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://otel-collector:4317
-      # - OTEL_RESOURCE_ATTRIBUTES
+      - OTEL_RESOURCE_ATTRIBUTES=data_stream.dataset=otel-logs,data_stream.namespace=demo
       - OTEL_SERVICE_NAME=order
       - ASPNETCORE_URLS=http://*:80
     depends_on:

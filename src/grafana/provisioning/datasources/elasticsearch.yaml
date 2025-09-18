@@ -9,7 +9,7 @@ datasources:
     editable: true
     isDefault: false
     jsonData:
-      database: jaeger-main-jaeger-span-*
-      timeField: startTimeMillis
+      database: .ds-logs-otel_logs.otel-demo-*
+      # timeField: startTimeMillis
       esVersion: 8.0.0
       timeInterval: "10s"

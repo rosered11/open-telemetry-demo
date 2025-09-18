@@ -13,10 +13,10 @@ datasources:
     isDefault: false
     jsonData:
       tracesToLogsV2:
-        datasourceUid: webstore-logs
+        datasourceUid: webstore-elastic-logs
         spanStartTimeShift: "-20m"
         spanEndTimeShift: "20m"
         filterByTraceID: true
         filterBySpanID: true
         customQuery: true
-        query: traceId:"$${__trace.traceId}" AND spanId:"$${__span.spanId}"
+        query: trace_id:"$${__trace.traceId}" AND span_id:"$${__span.spanId}"

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Confluent.Kafka.Extensions.OpenTelemetry;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -14,29 +15,34 @@ using Order.Api.Kafka;
 
 var builder = WebApplication.CreateBuilder(args);
 builder.Logging
-    .AddOpenTelemetry(options => options.AddOtlpExporter())
+    .AddOpenTelemetry(options =>
+    {
+        options.AddOtlpExporter();
+        options.IncludeFormattedMessage = true;
+        options.IncludeScopes = true;
+        options.ParseStateValues = true;
+    })
     .AddConsole();
 
 // Add services to the container.
 builder.Services.AddOpenTelemetry()
     .ConfigureResource(rb => rb.AddService(builder.Environment.ApplicationName))
-    
-  .WithTracing(b =>
-  {
-      b.AddSource(ServiceName.Orders)
-      .AddHttpClientInstrumentation()
-      .AddAspNetCoreInstrumentation()
-      .AddConfluentKafkaInstrumentation()
-      .SetSampler(new ParentBasedSampler(new AlwaysOnSampler()))
-      .AddOtlpExporter();
-  }).WithMetrics(meterBuilder => meterBuilder
-      // .AddMeter("Demo")
-      // .AddMeter("OpenFeature")
-      .AddProcessInstrumentation()
-      .AddRuntimeInstrumentation()
-      .AddAspNetCoreInstrumentation()
-      .SetExemplarFilter(ExemplarFilterType.TraceBased)
-      .AddOtlpExporter());
+    .WithTracing(b =>
+    {
+        b.AddSource(ServiceName.Orders)
+            .AddHttpClientInstrumentation()
+            .AddAspNetCoreInstrumentation()
+            .AddConfluentKafkaInstrumentation()
+            .SetSampler(new ParentBasedSampler(new AlwaysOnSampler()))
+            .AddOtlpExporter();
+    }).WithMetrics(meterBuilder => meterBuilder
+        // .AddMeter("Demo")
+        // .AddMeter("OpenFeature")
+        .AddProcessInstrumentation()
+        .AddRuntimeInstrumentation()
+        .AddAspNetCoreInstrumentation()
+        .SetExemplarFilter(ExemplarFilterType.TraceBased)
+        .AddOtlpExporter());
 
     
 
