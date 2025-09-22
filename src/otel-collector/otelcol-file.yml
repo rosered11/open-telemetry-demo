@@ -1,0 +1,68 @@
+# Copyright The OpenTelemetry Authors
+# SPDX-License-Identifier: Apache-2.0
+
+receivers:
+  otlp:
+    protocols:
+      grpc:
+        endpoint: otel-collector:4317
+      http:
+        endpoint: otel-collector:4318
+        cors:
+          allowed_origins:
+            - "http://*"
+            - "https://*"
+exporters:
+  debug:
+  file/rotation_with_default_settings:
+    path: ./logs
+    rotation:
+      max_megabytes: 10
+      max_days: 14
+      max_backups: 500
+      localtime: false # Use UTC
+    format: json
+    flush_interval: 5s
+  otlp:
+    endpoint: "jaeger:4317"
+    tls:
+      insecure: true
+
+processors:
+  batch:
+  transform:
+    error_mode: ignore
+    trace_statements:
+      - context: span
+        statements:
+          # could be removed when https://github.com/vercel/next.js/pull/64852 is fixed upstream
+          - replace_pattern(name, "\\?.*", "")
+          - replace_match(name, "GET /api/products/*", "GET /api/products/{productId}")
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+service:
+  extensions: [health_check]
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [transform, batch]
+      exporters: [otlp, debug]
+    logs:
+      receivers: [otlp]
+      exporters: [file/rotation_with_default_settings, debug]
+    # logs:
+    #   receivers: [otlp]
+    #   processors: [batch]
+    #   exporters: [opensearch, debug]
+  # telemetry:
+  #   metrics:
+  #     level: detailed
+  #     readers:
+  #       - periodic:
+  #           interval: 10000
+  #           timeout: 5000
+  #           exporter:
+  #             otlp:
+  #               protocol: http/protobuf
+  #               endpoint: otel-collector:4318
