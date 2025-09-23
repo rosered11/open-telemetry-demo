@@ -16,7 +16,10 @@
       "launchUrl": "swagger",
       "applicationUrl": "http://localhost:5113",
       "environmentVariables": {
-        "ASPNETCORE_ENVIRONMENT": "Development"
+        "ASPNETCORE_ENVIRONMENT": "Development",
+        "OTEL_EXPORTER_OTLP_ENDPOINT": "http://localhost:5217",
+        "OTEL_RESOURCE_ATTRIBUTES": "data_stream.dataset=otel-logs,data_stream.namespace=demo",
+        "OTEL_SERVICE_NAME": "order"
       }
     },
     "IIS Express": {

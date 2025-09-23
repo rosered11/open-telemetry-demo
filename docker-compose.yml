@@ -63,8 +63,8 @@ services:
     volumes:
       - ./src/otel-collector/otelcol-config.yml:/etc/otelcol-config.yml
     ports:
-      - "4318"
-      - "4317"
+      - "5218:4318"
+      - "5217:4317"
     depends_on:
       jaeger:
         condition: service_started
@@ -140,6 +140,7 @@ services:
   
   jaeger:
     image: jaegertracing/jaeger:2.10.0
+    container_name: jaeger
     deploy:
       resources:
         limits:
@@ -150,8 +151,8 @@ services:
     command: ["--config", "/etc/otelcol-config-elastic.yml"]
     ports:
       - "9091:16686"         # Jaeger UI
-      - "4317:4317"
-      - "4318:4318"
+      - "5219:4317"
+      - "5220:4318"
     depends_on:
       elasticsearch:
         condition: service_healthy

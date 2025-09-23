@@ -1,28 +1,30 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using Confluent.Kafka.Extensions.OpenTelemetry;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Microsoft.Extensions.Logging;
-using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 using Order.Api;
 using Order.Api.Kafka;
+using Serilog;
 
-var builder = WebApplication.CreateBuilder(args);
-builder.Logging
-    .AddOpenTelemetry(options =>
-    {
-        options.AddOtlpExporter();
-        options.IncludeFormattedMessage = true;
-        options.IncludeScopes = true;
-        options.ParseStateValues = true;
-    })
-    .AddConsole();
+
+var builder = WebApplication
+    .CreateBuilder(args);
+builder.Host.UseSerilog((context, services, configuration) =>
+    configuration.ReadFrom.Configuration(context.Configuration)
+        .ReadFrom.Services(services));
+
+Log.Logger = new LoggerConfiguration()
+    .ReadFrom.Configuration(new ConfigurationBuilder()
+        .SetBasePath(Directory.GetCurrentDirectory())
+        .AddJsonFile("appsettings.json", optional: true)
+        .Build())
+    .CreateLogger();
 
 // Add services to the container.
 builder.Services.AddOpenTelemetry()
@@ -30,11 +32,12 @@ builder.Services.AddOpenTelemetry()
     .WithTracing(b =>
     {
         b.AddSource(ServiceName.Orders)
+            
             .AddHttpClientInstrumentation()
             .AddAspNetCoreInstrumentation()
             .AddConfluentKafkaInstrumentation()
             .SetSampler(new ParentBasedSampler(new AlwaysOnSampler()))
-            .AddOtlpExporter();
+            .AddOtlpExporter(x => x.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT")!));
     }).WithMetrics(meterBuilder => meterBuilder
         // .AddMeter("Demo")
         // .AddMeter("OpenFeature")
@@ -42,7 +45,7 @@ builder.Services.AddOpenTelemetry()
         .AddRuntimeInstrumentation()
         .AddAspNetCoreInstrumentation()
         .SetExemplarFilter(ExemplarFilterType.TraceBased)
-        .AddOtlpExporter());
+        .AddOtlpExporter(x => x.Endpoint = new Uri(Environment.GetEnvironmentVariable("OTEL_EXPORTER_OTLP_ENDPOINT")!)));
 
     
 
